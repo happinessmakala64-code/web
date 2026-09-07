@@ -1,13 +1,12 @@
 async function fetchProductsFromApi() {
-  if (typeof API_BASE_URL === "undefined" || !API_BASE_URL) return null;
-  const response = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/products`);
+  const response = await fetch(apiUrl("/products"));
   if (!response.ok) throw new Error(`API responded with ${response.status}`);
   const payload = await response.json();
   return Array.isArray(payload) ? payload : (payload.products || []);
 }
 
 function apiUrl(path) {
-  if (typeof API_BASE_URL === "undefined" || !API_BASE_URL) throw new Error("The catalogue API URL is not configured.");
+  if (typeof API_BASE_URL === "undefined" || !API_BASE_URL) return path;
   return `${API_BASE_URL.replace(/\/$/, "")}${path}`;
 }
 

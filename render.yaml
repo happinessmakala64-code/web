@@ -1,19 +1,14 @@
 services:
-  - type: static_site
-    name: multivision-electronics-site
-    buildCommand: ""
-    staticPublishPath: .
   - type: web
-    name: multivision-catalogue-api
+    name: multivision-electronics
     runtime: node
-    rootDir: api
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm install --prefix api
+    startCommand: node api/server.js
     envVars:
       - key: ADMIN_PASSWORD
         value: admin123
       - key: FRONTEND_ORIGIN
-        sync: false
+        value: "*"
     disk:
       name: catalogue-data
       mountPath: /opt/render/project/src/api/data
