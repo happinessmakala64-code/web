@@ -1,6 +1,7 @@
 services:
   - type: web
     name: multivision-electronics
+    plan: free
     runtime: node
     buildCommand: npm install --prefix api
     startCommand: node api/server.js
