@@ -1,0 +1,28 @@
+const adminState = {products: [], token: sessionStorage.getItem("multivision-admin-token") || ""};
+const $ = id => document.getElementById(id);
+
+function authHeaders() { return {Authorization: `Bearer ${adminState.token}`}; }
+function specificationsFromText(value) { return Object.fromEntries(value.split("\n").map(line => line.split(":")).filter(parts => parts.length > 1 && parts[0].trim()).map(parts => [parts[0].trim(), parts.slice(1).join(":").trim()])); }
+function specificationsToText(value) { return Object.entries(value || {}).map(([key, item]) => `${key}: ${item}`).join("\n"); }
+function showMessage(element, message, error = false) { element.textContent = message; element.classList.toggle("error", error); }
+function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[char])); }
+
+async function loadProducts() {
+  adminState.products = await adminApiRequest("/products", {headers: authHeaders()});
+  if (!Array.isArray(adminState.products)) adminState.products = adminState.products.products || [];
+  renderProducts();
+}
+function renderProducts() {
+  $("admin-products").innerHTML = adminState.products.length ? adminState.products.map(product => `<article class="admin-product"><img src="${escapeHtml(product.image || "")}" alt=""><div><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.category || "")} · K${Number(product.price || 0).toLocaleString("en-US")}</small></div><div class="admin-product-actions"><button class="clear-button" data-edit="${escapeHtml(product.id)}" type="button">Edit</button><button class="clear-button danger" data-delete="${escapeHtml(product.id)}" type="button">Delete</button></div></article>`).join("") : "<p class=\"form-message\">No products yet.</p>";
+  $("admin-products").querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => editProduct(button.dataset.edit)));
+  $("admin-products").querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", () => deleteProduct(button.dataset.delete)));
+}
+function resetForm() { $("product-form").reset(); $("product-id").value = ""; $("save-product").textContent = "Add product"; $("cancel-edit").hidden = true; }
+function editProduct(id) { const product = adminState.products.find(item => item.id === id); if (!product) return; $("product-id").value = product.id; $("product-name").value = product.name || ""; $("product-category").value = product.category || ""; $("product-price").value = product.price || 0; $("product-availability").value = product.availability || "Available"; $("product-description").value = product.description || ""; $("product-image-url").value = product.image && !product.image.startsWith("data:") ? product.image : ""; $("product-specifications").value = specificationsToText(product.specifications); $("save-product").textContent = "Save changes"; $("cancel-edit").hidden = false; window.scrollTo({top: 0, behavior: "smooth"}); }
+async function imageValue() { const file = $("product-image-file").files[0]; if (!file) return $("product-image-url").value.trim(); return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); }
+async function saveProduct(event) { event.preventDefault(); const message = $("form-message"); try { const product = {name: $("product-name").value.trim(), category: $("product-category").value.trim(), price: Number($("product-price").value), availability: $("product-availability").value, description: $("product-description").value.trim(), image: await imageValue(), specifications: specificationsFromText($("product-specifications").value)}; if (!product.image) throw new Error("Add a product photo or image URL."); const id = $("product-id").value; await adminApiRequest(id ? `/products/${encodeURIComponent(id)}` : "/products", {method: id ? "PUT" : "POST", headers: authHeaders(), body: JSON.stringify(product)}); showMessage(message, id ? "Product updated." : "Product added."); resetForm(); await loadProducts(); } catch (error) { showMessage(message, error.message, true); } }
+async function deleteProduct(id) { if (!window.confirm("Remove this product from the public catalogue?")) return; try { await adminApiRequest(`/products/${encodeURIComponent(id)}`, {method: "DELETE", headers: authHeaders()}); await loadProducts(); } catch (error) { showMessage($("form-message"), error.message, true); } }
+
+$("login-form").addEventListener("submit", async event => { event.preventDefault(); const message = $("login-message"); try { const result = await adminApiRequest("/admin/login", {method: "POST", body: JSON.stringify({password: $("admin-password").value})}); adminState.token = result.token; sessionStorage.setItem("multivision-admin-token", result.token); $("login-form").hidden = true; $("catalogue-manager").hidden = false; $("logout-button").hidden = false; await loadProducts(); } catch (error) { showMessage(message, error.message, true); } });
+$("product-form").addEventListener("submit", saveProduct); $("cancel-edit").addEventListener("click", resetForm); $("logout-button").addEventListener("click", () => { sessionStorage.removeItem("multivision-admin-token"); location.reload(); });
+if (adminState.token) { $("login-form").hidden = true; $("catalogue-manager").hidden = false; $("logout-button").hidden = false; loadProducts().catch(() => { sessionStorage.removeItem("multivision-admin-token"); location.reload(); }); }
