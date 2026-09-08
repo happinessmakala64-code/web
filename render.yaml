@@ -7,10 +7,14 @@ services:
     startCommand: node api/server.js
     envVars:
       - key: ADMIN_PASSWORD
-        value: admin123
+        sync: false
       - key: FRONTEND_ORIGIN
         value: "*"
-    disk:
-      name: catalogue-data
-      mountPath: /opt/render/project/src/api/data
-      sizeGB: 1
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPOSITORY
+        sync: false
+      - key: GITHUB_BRANCH
+        value: main
+      - key: GITHUB_FILE_PATH
+        value: api/data/products.json
